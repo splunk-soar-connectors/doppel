@@ -175,9 +175,6 @@ def _make_request(
     if asset.org_code:
         headers["x-organization-code"] = asset.org_code.strip()
 
-    from urllib.parse import urlencode
-
-    full_url = url + (f"?{urlencode(params)}" if params else "")
     logger.info(f"API CALL: {method} {endpoint}")
     for attempt in range(3):
         try:
@@ -259,7 +256,7 @@ def test_connectivity(soar: SOARClient, asset: Asset) -> None:
 def create_alert(
     params: CreateAlertParams, asset: Asset, soar: SOARClient
 ) -> DoppelActionOutput:
-    logger.info(f"create_alert started")
+    logger.info("create_alert started")
     if not asset.doppel_api_key:
         logger.error("API key missing")
         return DoppelActionOutput(
@@ -301,7 +298,7 @@ def create_alert(
 def get_alert(
     params: GetAlertParams, asset: Asset, soar: SOARClient
 ) -> DoppelActionOutput:
-    logger.info(f"get_alert started")
+    logger.info("get_alert started")
     if not asset.doppel_api_key:
         logger.error("API key missing")
         return DoppelActionOutput(
@@ -364,7 +361,7 @@ def get_alert(
 def get_all_alerts(
     params: GetAllAlertsParams, asset: Asset, soar: SOARClient
 ) -> DoppelActionOutput:
-    logger.info(f"get_all_alerts started")
+    logger.info("get_all_alerts started")
     if not asset.doppel_api_key:
         logger.error("API key missing")
         return DoppelActionOutput(
@@ -407,7 +404,7 @@ def get_all_alerts(
 def update_alert(
     params: UpdateAlertParams, asset: Asset, soar: SOARClient
 ) -> DoppelActionOutput:
-    logger.info(f"update_alert started")
+    logger.info("update_alert started")
     if not asset.doppel_api_key:
         logger.error("API key missing")
         return DoppelActionOutput(
@@ -556,7 +553,7 @@ def update_artifact(soar: SOARClient, artifact_id: int, artifact: Artifact) -> b
     for k, v in artifact.cef.items():
         if v is None:
             continue
-        if isinstance(v, (str, int, float, bool)):
+        if isinstance(v, (str | int | float | bool)):
             sanitized_cef[k] = v
         else:
             sanitized_cef[k] = str(v)
@@ -599,7 +596,7 @@ def update_artifact(soar: SOARClient, artifact_id: int, artifact: Artifact) -> b
 def on_poll(
     params: OnPollParams, asset: Asset, soar: SOARClient
 ) -> Iterator[Container | Artifact]:
-    logger.info(f"DOPPEL POLLING STARTED")
+    logger.info("DOPPEL POLLING STARTED")
     if not asset.doppel_api_key:
         logger.error("API key missing")
         return
