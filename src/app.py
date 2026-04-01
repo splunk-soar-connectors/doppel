@@ -1,4 +1,4 @@
-# Copyright (c) 2025 Splunk Inc.
+# Copyright (c) 2025-2026 Splunk Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,11 +30,7 @@ from soar_sdk.models.container import Container
 from soar_sdk.models.artifact import Artifact
 
 logger = getLogger()
-logger.setLevel("INFO")  # Reduced from DEBUG to INFO
 
-# Code version for tracking
-CODE_VERSION = "1.0.16"  # Updated for minimal logging
-logger.info(f"Doppel App initialized - Code Version: {CODE_VERSION}")
 
 # ========================================
 # 1. PARAMS
@@ -44,9 +40,11 @@ class CreateAlertParams(Params):
     brand: str = Param(description="Brand name", required=False)
     source: str = Param(description="Source system", required=False)
 
+
 class GetAlertParams(Params):
     id: str = Param(description="Alert ID", required=False)
     entity: str = Param(description="Entity", required=False)
+
 
 class GetAllAlertsParams(Params):
     search_key: str = Param(description="Search term", required=False)
@@ -62,7 +60,10 @@ class GetAllAlertsParams(Params):
             "archived",
         ],
     )
-    product: str = Param(description="Product", required=False, value_list=[
+    product: str = Param(
+        description="Product",
+        required=False,
+        value_list=[
             "domains",
             "social_media",
             "mobile_apps",
@@ -72,7 +73,8 @@ class GetAllAlertsParams(Params):
             "paid_ads",
             "telco",
             "darkweb",
-        ],)
+        ],
+    )
     created_before: str = Param(description="ISO timestamp", required=False)
     created_after: str = Param(description="ISO timestamp", required=False)
     last_activity_timestamp: str = Param(description="ISO timestamp", required=False)
@@ -81,6 +83,7 @@ class GetAllAlertsParams(Params):
     page_size: int = Param(
         description="Number of alerts per page", required=False, default=100
     )
+
 
 class UpdateAlertParams(Params):
     id: str = Param(description="Alert ID", required=False)
@@ -106,6 +109,7 @@ class UpdateAlertParams(Params):
     tag_action: str = Param(description="add/remove", required=False)
     tag_name: str = Param(description="Tag name", required=False)
 
+
 # ========================================
 # 2. ASSET
 # ========================================
@@ -123,6 +127,7 @@ class Asset(BaseAsset):
         default=30,
     )
 
+
 # ========================================
 # 3. CUSTOM ACTION OUTPUT
 # ========================================
@@ -137,6 +142,7 @@ class DoppelActionOutput(ActionOutput):
     error_message: str = OutputField(
         example_values=["", "Alert not found"], column_name="Error Message"
     )
+
 
 # ========================================
 # 4. APP
@@ -154,6 +160,7 @@ app = App(
     fips_compliant=True,
     asset_cls=Asset,
 )
+
 
 # ========================================
 # 5. API HELPER
@@ -215,28 +222,12 @@ def _make_request(
                 return False, 0, {}, f"Request failed: {exc}"
     return False, 0, {}, "Max retries exceeded"
 
+
 # ========================================
 # 6. TEST CONNECTIVITY
 # ========================================
 @app.test_connectivity()
 def test_connectivity(soar: SOARClient, asset: Asset) -> None:
-    logger.info("              *****     *****              ")
-    logger.info("           ********      *******           ")
-    logger.info("         **********         ******         ")
-    logger.info("        ***********           *****        ")
-    logger.info("       ************            ******      ")
-    logger.info("      **************           ******      ")
-    logger.info("     **********   ******        ******     ")
-    logger.info("     ********     ********      ******     ")
-    logger.info("     *******     *********     *******     ")
-    logger.info("     ******      ********     ********     ")
-    logger.info("     ******         *****   **********     ")
-    logger.info("      *****            **************      ")
-    logger.info("       *****            ************       ")
-    logger.info("        *****           ***********        ")
-    logger.info("         ******         **********         ")
-    logger.info("           *******      ********           ")
-    logger.info("              *****     *****              ")
     if not asset.doppel_api_key:
         logger.error("Doppel API key required")
         raise ActionFailure("Doppel API key required")
@@ -248,6 +239,7 @@ def test_connectivity(soar: SOARClient, asset: Asset) -> None:
     else:
         logger.error(f"Connectivity test failed: {error}")
         raise ActionFailure(error)
+
 
 # ========================================
 # 7. ACTIONS
@@ -293,6 +285,7 @@ def create_alert(
         response_body=response_body,
         error_message="" if ok else error,
     )
+
 
 @app.action()
 def get_alert(
@@ -357,6 +350,7 @@ def get_alert(
         error_message=error,
     )
 
+
 @app.action()
 def get_all_alerts(
     params: GetAllAlertsParams, asset: Asset, soar: SOARClient
@@ -399,6 +393,7 @@ def get_all_alerts(
         response_body=response_body,
         error_message="" if ok else error,
     )
+
 
 @app.action()
 def update_alert(
@@ -478,13 +473,16 @@ def update_alert(
         error_message=error,
     )
 
+
 # ========================================
 # 8. HELPER FUNCTIONS FOR UPDATES
 # ========================================
 def get_existing_container(soar: SOARClient, sdi: str) -> dict | None:
     try:
-        encoded_sdi = quote(sdi, safe='')
-        response = soar.get(f"rest/container?_filter_source_data_identifier=\"{encoded_sdi}\"")
+        encoded_sdi = quote(sdi, safe="")
+        response = soar.get(
+            f'rest/container?_filter_source_data_identifier="{encoded_sdi}"'
+        )
         data = response.json()
         containers = data.get("data", [])
         if containers:
@@ -496,10 +494,13 @@ def get_existing_container(soar: SOARClient, sdi: str) -> dict | None:
         logger.error(f"Failed to query container for SDI {sdi}: {e}")
         return None
 
+
 def update_container(soar: SOARClient, container_id: int, container: Container) -> bool:
     update_payload = {
         "name": container.name,
-        "severity": container.severity.lower() if isinstance(container.severity, str) else "medium",
+        "severity": container.severity.lower()
+        if isinstance(container.severity, str)
+        else "medium",
         "description": container.description,
         "label": container.label,
         "run_automation": container.run_automation,
@@ -515,27 +516,34 @@ def update_container(soar: SOARClient, container_id: int, container: Container) 
             if data.get("success", False) and data.get("id") == container_id:
                 logger.info(f"Container ID {container_id} updated")
                 return True
-            logger.error(f"Failed to update container ID {container_id}: {data.get('message', 'Unknown error')}")
+            logger.error(
+                f"Failed to update container ID {container_id}: {data.get('message', 'Unknown error')}"
+            )
             if attempt < 2 and response.status_code in (429, 500, 503):
                 logger.warning(f"Retrying container ID {container_id}")
-                time.sleep(2 ** attempt)
+                time.sleep(2**attempt)
                 continue
             return False
         except Exception as e:
             logger.error(f"Failed to update container ID {container_id}: {e}")
-            if attempt < 2 and hasattr(e, 'response') and e.response.status_code in (429, 500, 503):
+            if (
+                attempt < 2
+                and hasattr(e, "response")
+                and e.response.status_code in (429, 500, 503)
+            ):
                 logger.warning(f"Retrying container ID {container_id}")
-                time.sleep(2 ** attempt)
+                time.sleep(2**attempt)
                 continue
             return False
     logger.error(f"Max retries exceeded for container ID {container_id}")
     return False
 
+
 def get_existing_artifact(soar: SOARClient, sdi: str, container_id: int) -> dict | None:
     try:
-        encoded_sdi = quote(sdi, safe='')
+        encoded_sdi = quote(sdi, safe="")
         response = soar.get(
-            f"rest/artifact?_filter_source_data_identifier=\"{encoded_sdi}\"&_filter_container={container_id}"
+            f'rest/artifact?_filter_source_data_identifier="{encoded_sdi}"&_filter_container={container_id}'
         )
         data = response.json()
         artifacts = data.get("data", [])
@@ -547,6 +555,7 @@ def get_existing_artifact(soar: SOARClient, sdi: str, container_id: int) -> dict
     except Exception as e:
         logger.error(f"Failed to query artifact for SDI {sdi}: {e}")
         return None
+
 
 def update_artifact(soar: SOARClient, artifact_id: int, artifact: Artifact) -> bool:
     sanitized_cef = {}
@@ -573,21 +582,28 @@ def update_artifact(soar: SOARClient, artifact_id: int, artifact: Artifact) -> b
             if data.get("success", False) and data.get("id") == artifact_id:
                 logger.info(f"Artifact ID {artifact_id} updated")
                 return True
-            logger.error(f"Failed to update artifact ID {artifact_id}: {data.get('message', 'Unknown error')}")
+            logger.error(
+                f"Failed to update artifact ID {artifact_id}: {data.get('message', 'Unknown error')}"
+            )
             if attempt < 2 and response.status_code in (429, 500, 503):
                 logger.warning(f"Retrying artifact ID {artifact_id}")
-                time.sleep(2 ** attempt)
+                time.sleep(2**attempt)
                 continue
             return False
         except Exception as e:
             logger.error(f"Failed to update artifact ID {artifact_id}: {e}")
-            if attempt < 2 and hasattr(e, 'response') and e.response.status_code in (429, 500, 503):
+            if (
+                attempt < 2
+                and hasattr(e, "response")
+                and e.response.status_code in (429, 500, 503)
+            ):
                 logger.warning(f"Retrying artifact ID {artifact_id}")
-                time.sleep(2 ** attempt)
+                time.sleep(2**attempt)
                 continue
             return False
     logger.error(f"Max retries exceeded for artifact ID {artifact_id}")
     return False
+
 
 # ========================================
 # 9. ON POLL - YIELD CONTAINER/ARTIFACT WITH UPDATES
@@ -654,7 +670,12 @@ def on_poll(
             logger.info(f"Processing alert {alert_id}")
 
             unique_sdi = alert_id
-            entity_sanitized = entity.replace("://", "_").replace("/", "_").replace(":", "_").replace(" ", "_")
+            entity_sanitized = (
+                entity.replace("://", "_")
+                .replace("/", "_")
+                .replace(":", "_")
+                .replace(" ", "_")
+            )
             main_artifact_sdi = f"{alert_id}-{entity_sanitized}"
 
             severity = alert.get("severity") or "medium"
@@ -665,7 +686,6 @@ def on_poll(
 
             container = Container(
                 name=f"Doppel Alert: {alert_id}",
-                label="events",
                 severity=severity,
                 source_data_identifier=unique_sdi,
                 description=None,
@@ -690,11 +710,15 @@ def on_poll(
                         container_id = existing_container["id"]
                     else:
                         containers_failed += 1
-                        logger.error(f"Failed to retrieve container for alert {alert_id}")
+                        logger.error(
+                            f"Failed to retrieve container for alert {alert_id}"
+                        )
                         continue
                 except Exception as e:
                     containers_failed += 1
-                    logger.error(f"Failed to create container for alert {alert_id}: {e}")
+                    logger.error(
+                        f"Failed to create container for alert {alert_id}: {e}"
+                    )
                     continue
 
             if not container_id:
@@ -736,7 +760,9 @@ def on_poll(
                 container_id=container_id,
             )
 
-            existing_artifact = get_existing_artifact(soar, main_artifact_sdi, container_id)
+            existing_artifact = get_existing_artifact(
+                soar, main_artifact_sdi, container_id
+            )
             if existing_artifact:
                 artifact_id = existing_artifact["id"]
                 if update_artifact(soar, artifact_id, artifact):
@@ -757,15 +783,28 @@ def on_poll(
                 logger.info(f"Processing {len(audit)} audit logs for alert {alert_id}")
                 sorted_audit = sorted(
                     audit,
-                    key=lambda log: log.get("timestamp", "1970-01-01T00:00:00") or "1970-01-01T00:00:00",
-                    reverse=True
+                    key=lambda log: log.get("timestamp", "1970-01-01T00:00:00")
+                    or "1970-01-01T00:00:00",
+                    reverse=True,
                 )
                 for i, log in enumerate(sorted_audit, 1):
-                    audit_timestamp = log.get("timestamp", "unknown").replace(":", "_").replace(".", "_").replace(" ", "_")
-                    audit_type = log.get("type", "unknown").replace(" ", "_").replace(":", "_").replace("/", "_")
+                    audit_timestamp = (
+                        log.get("timestamp", "unknown")
+                        .replace(":", "_")
+                        .replace(".", "_")
+                        .replace(" ", "_")
+                    )
+                    audit_type = (
+                        log.get("type", "unknown")
+                        .replace(" ", "_")
+                        .replace(":", "_")
+                        .replace("/", "_")
+                    )
                     audit_sdi = f"{alert_id}-{audit_timestamp}-{audit_type}"
 
-                    existing_audit_artifact = get_existing_artifact(soar, audit_sdi, container_id)
+                    existing_audit_artifact = get_existing_artifact(
+                        soar, audit_sdi, container_id
+                    )
                     if existing_audit_artifact:
                         audit_artifacts_skipped += 1
                         continue
@@ -794,7 +833,9 @@ def on_poll(
                         audit_artifacts_added += 1
                     except Exception as e:
                         audit_artifacts_failed += 1
-                        logger.error(f"Failed to create audit artifact {i} for alert {alert_id}: {e}")
+                        logger.error(
+                            f"Failed to create audit artifact {i} for alert {alert_id}: {e}"
+                        )
 
             total_processed += 1
 
@@ -806,9 +847,15 @@ def on_poll(
             break
 
     logger.info(f"POLLING FINISHED - {total_processed} alerts processed")
-    logger.info(f"Containers: added={containers_added}, updated={containers_updated}, failed={containers_failed}")
-    logger.info(f"Artifacts: added={artifacts_added}, updated={artifacts_updated}, failed={artifacts_failed}")
-    logger.info(f"Audit artifacts: added={audit_artifacts_added}, skipped={audit_artifacts_skipped}, failed={audit_artifacts_failed}")
+    logger.info(
+        f"Containers: added={containers_added}, updated={containers_updated}, failed={containers_failed}"
+    )
+    logger.info(
+        f"Artifacts: added={artifacts_added}, updated={artifacts_updated}, failed={artifacts_failed}"
+    )
+    logger.info(
+        f"Audit artifacts: added={audit_artifacts_added}, skipped={audit_artifacts_skipped}, failed={audit_artifacts_failed}"
+    )
 
     soar.set_summary(
         {
@@ -825,10 +872,9 @@ def on_poll(
         }
     )
 
+
 # ========================================
 # CLI
 # ========================================
 if __name__ == "__main__":
     app.cli()
-
-
