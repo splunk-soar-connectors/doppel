@@ -137,7 +137,7 @@ class Asset(BaseAsset):
 # 3. CUSTOM ACTION OUTPUTS
 # ========================================
 class BaseAlertOutput(ActionOutput):
-    """Base output model for Doppel Alerts"""
+    """Base output model for Doppel Alerts - All major fields included"""
 
     id: str | None = OutputField(example_values=["TST-123"])
     entity: str | None = OutputField(example_values=["example.com"])
@@ -147,6 +147,20 @@ class BaseAlertOutput(ActionOutput):
     doppel_link: str | None = OutputField(
         example_values=["https://app.doppel.com/alert/TST-123"]
     )
+    brand: str | None = OutputField(example_values=["test_brand"])
+    product: str | None = OutputField(example_values=["domains"])
+    platform: str | None = OutputField(example_values=["domain"])
+    source: str | None = OutputField(example_values=["API Upload"])
+    created_at: str | None = OutputField(example_values=["2025-04-10T12:00:00Z"])
+    last_activity_timestamp: str | None = OutputField(
+        example_values=["2025-04-15T10:30:00Z"]
+    )
+    score: float | None = OutputField(example_values=[0.5])
+    screenshot_url: str | None = OutputField(
+        example_values=["https://example.com/screenshot.png"]
+    )
+    tags: str | None = OutputField(example_values=["phishing, brand_protection"])
+    entity_content: str | None = OutputField(example_values=['{"ip": "127.0.0.0"}'])
 
 
 class CreateAlertOutput(BaseAlertOutput):
@@ -287,14 +301,7 @@ def create_alert(
         raise ActionFailure(f"Failed to create alert. HTTP {status_code}: {error}")
 
     logger.info(f"Alert created: {data.get('id')}")
-    return CreateAlertOutput(
-        id=data.get("id"),
-        entity=data.get("entity"),
-        severity=data.get("severity"),
-        queue_state=data.get("queue_state"),
-        entity_state=data.get("entity_state"),
-        doppel_link=data.get("doppel_link"),
-    )
+    return CreateAlertOutput(**_alert_to_output(data), success=True)
 
 
 @app.action(
@@ -323,14 +330,7 @@ def get_alert(params: GetAlertParams, asset: Asset, soar: SOARClient) -> GetAler
     alert_data = data[0] if isinstance(data, list) and len(data) > 0 else data
     logger.info(f"Alert found: {alert_data.get('id')}")
 
-    return GetAlertOutput(
-        id=alert_data.get("id"),
-        entity=alert_data.get("entity"),
-        severity=alert_data.get("severity"),
-        queue_state=alert_data.get("queue_state"),
-        entity_state=alert_data.get("entity_state"),
-        doppel_link=alert_data.get("doppel_link"),
-    )
+    return GetAlertOutput(**_alert_to_output(alert_data))
 
 
 @app.action(
@@ -353,21 +353,11 @@ def get_all_alerts(
     alerts = data.get("alerts", []) if isinstance(data, dict) else []
     logger.info(f"Fetched {len(alerts)} alerts")
 
-    return [
-        GetAllAlertsOutput(
-            id=alert.get("id"),
-            entity=alert.get("entity"),
-            severity=alert.get("severity"),
-            queue_state=alert.get("queue_state"),
-            entity_state=alert.get("entity_state"),
-            doppel_link=alert.get("doppel_link"),
-        )
-        for alert in alerts
-    ]
+    return [GetAllAlertsOutput(**_alert_to_output(alert)) for alert in alerts]
 
 
 @app.action(
-    description="Update an existing Doppel alert's queue state, entity state or comment.",
+    description="Update an existing Doppel alert's queue state, entity state, comment or tag.",
     action_type="generic",
     read_only=False,
 )
@@ -393,14 +383,7 @@ def update_alert(
         raise ActionFailure(f"Failed to update alert. HTTP {status_code}: {error}")
 
     logger.info(f"Alert updated for {params.id or params.entity}")
-    return UpdateAlertOutput(
-        id=data.get("id"),
-        entity=data.get("entity"),
-        severity=data.get("severity"),
-        queue_state=data.get("queue_state"),
-        entity_state=data.get("entity_state"),
-        doppel_link=data.get("doppel_link"),
-    )
+    return UpdateAlertOutput(**_alert_to_output(data), success=True)
 
 
 # ========================================
@@ -470,6 +453,40 @@ def update_artifact(soar: SOARClient, artifact_id: int, artifact: Artifact) -> b
     except Exception as e:
         logger.error(f"Failed to update artifact {artifact_id}: {e}")
         return False
+
+
+def _alert_to_output(alert_data: dict) -> dict:
+    """Convert Doppel alert dictionary to output fields"""
+    tags = ",".join(
+        tag.get("name", "") if isinstance(tag, dict) else str(tag)
+        for tag in alert_data.get("tags", [])
+    )
+
+    # Handle both possible keys for last activity
+    last_activity = alert_data.get("last_activity_timestamp") or alert_data.get(
+        "last_activity"
+    )
+
+    return {
+        "id": alert_data.get("id"),
+        "entity": alert_data.get("entity"),
+        "severity": alert_data.get("severity"),
+        "queue_state": alert_data.get("queue_state"),
+        "entity_state": alert_data.get("entity_state"),
+        "doppel_link": alert_data.get("doppel_link"),
+        "brand": alert_data.get("brand"),
+        "product": alert_data.get("product"),
+        "platform": alert_data.get("platform"),
+        "source": alert_data.get("source"),
+        "created_at": alert_data.get("created_at"),
+        "last_activity_timestamp": last_activity,
+        "score": alert_data.get("score"),
+        "screenshot_url": alert_data.get("screenshot_url"),
+        "tags": tags,
+        "entity_content": json.dumps(alert_data.get("entity_content"))
+        if alert_data.get("entity_content")
+        else None,
+    }
 
 
 # ========================================

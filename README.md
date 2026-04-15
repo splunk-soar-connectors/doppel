@@ -25,7 +25,7 @@ VARIABLE | REQUIRED | TYPE | DESCRIPTION
 [create alert](#action-create-alert) - Create a new alert in Doppel for a specific entity. <br>
 [get alert](#action-get-alert) - Fetch details of a specific Doppel alert by its ID or entity. <br>
 [get all alerts](#action-get-all-alerts) - Retrieve multiple Doppel alerts based on search criteria and filters. <br>
-[update alert](#action-update-alert) - Update an existing Doppel alert's queue state, entity state or comment. <br>
+[update alert](#action-update-alert) - Update an existing Doppel alert's queue state, entity state, comment or tag. <br>
 [on poll](#action-on-poll) - on poll
 
 ## action: 'test connectivity'
@@ -80,6 +80,16 @@ action_result.data.\*.severity | string | | high medium |
 action_result.data.\*.queue_state | string | | doppel_review |
 action_result.data.\*.entity_state | string | | active down |
 action_result.data.\*.doppel_link | string | | https://app.doppel.com/alert/TST-123 |
+action_result.data.\*.brand | string | | test_brand |
+action_result.data.\*.product | string | | domains |
+action_result.data.\*.platform | string | | domain |
+action_result.data.\*.source | string | | API Upload |
+action_result.data.\*.created_at | string | | 2025-04-10T12:00:00Z |
+action_result.data.\*.last_activity_timestamp | string | | 2025-04-15T10:30:00Z |
+action_result.data.\*.score | numeric | | 0.5 |
+action_result.data.\*.screenshot_url | string | | https://example.com/screenshot.png |
+action_result.data.\*.tags | string | | phishing, brand_protection |
+action_result.data.\*.entity_content | string | | {"ip": "127.0.0.0"} |
 action_result.data.\*.success | boolean | | True False |
 summary.total_objects | numeric | | 1 |
 summary.total_objects_successful | numeric | | 1 |
@@ -112,6 +122,16 @@ action_result.data.\*.severity | string | | high medium |
 action_result.data.\*.queue_state | string | | doppel_review |
 action_result.data.\*.entity_state | string | | active down |
 action_result.data.\*.doppel_link | string | | https://app.doppel.com/alert/TST-123 |
+action_result.data.\*.brand | string | | test_brand |
+action_result.data.\*.product | string | | domains |
+action_result.data.\*.platform | string | | domain |
+action_result.data.\*.source | string | | API Upload |
+action_result.data.\*.created_at | string | | 2025-04-10T12:00:00Z |
+action_result.data.\*.last_activity_timestamp | string | | 2025-04-15T10:30:00Z |
+action_result.data.\*.score | numeric | | 0.5 |
+action_result.data.\*.screenshot_url | string | | https://example.com/screenshot.png |
+action_result.data.\*.tags | string | | phishing, brand_protection |
+action_result.data.\*.entity_content | string | | {"ip": "127.0.0.0"} |
 summary.total_objects | numeric | | 1 |
 summary.total_objects_successful | numeric | | 1 |
 
@@ -157,12 +177,22 @@ action_result.data.\*.severity | string | | high medium |
 action_result.data.\*.queue_state | string | | doppel_review |
 action_result.data.\*.entity_state | string | | active down |
 action_result.data.\*.doppel_link | string | | https://app.doppel.com/alert/TST-123 |
+action_result.data.\*.brand | string | | test_brand |
+action_result.data.\*.product | string | | domains |
+action_result.data.\*.platform | string | | domain |
+action_result.data.\*.source | string | | API Upload |
+action_result.data.\*.created_at | string | | 2025-04-10T12:00:00Z |
+action_result.data.\*.last_activity_timestamp | string | | 2025-04-15T10:30:00Z |
+action_result.data.\*.score | numeric | | 0.5 |
+action_result.data.\*.screenshot_url | string | | https://example.com/screenshot.png |
+action_result.data.\*.tags | string | | phishing, brand_protection |
+action_result.data.\*.entity_content | string | | {"ip": "127.0.0.0"} |
 summary.total_objects | numeric | | 1 |
 summary.total_objects_successful | numeric | | 1 |
 
 ## action: 'update alert'
 
-Update an existing Doppel alert's queue state, entity state or comment.
+Update an existing Doppel alert's queue state, entity state, comment or tag.
 
 Type: **generic** <br>
 Read only: **False**
@@ -198,6 +228,16 @@ action_result.data.\*.severity | string | | high medium |
 action_result.data.\*.queue_state | string | | doppel_review |
 action_result.data.\*.entity_state | string | | active down |
 action_result.data.\*.doppel_link | string | | https://app.doppel.com/alert/TST-123 |
+action_result.data.\*.brand | string | | test_brand |
+action_result.data.\*.product | string | | domains |
+action_result.data.\*.platform | string | | domain |
+action_result.data.\*.source | string | | API Upload |
+action_result.data.\*.created_at | string | | 2025-04-10T12:00:00Z |
+action_result.data.\*.last_activity_timestamp | string | | 2025-04-15T10:30:00Z |
+action_result.data.\*.score | numeric | | 0.5 |
+action_result.data.\*.screenshot_url | string | | https://example.com/screenshot.png |
+action_result.data.\*.tags | string | | phishing, brand_protection |
+action_result.data.\*.entity_content | string | | {"ip": "127.0.0.0"} |
 action_result.data.\*.success | boolean | | True False |
 summary.total_objects | numeric | | 1 |
 summary.total_objects_successful | numeric | | 1 |
