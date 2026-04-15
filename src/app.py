@@ -11,6 +11,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+
 # src/app.py
 import time
 from collections.abc import Iterator
@@ -19,6 +21,8 @@ from zoneinfo import ZoneInfo
 import requests
 import json
 from urllib.parse import quote
+
+
 from soar_sdk.abstract import SOARClient
 from soar_sdk.app import App
 from soar_sdk.params import Params, Param, OnPollParams
@@ -28,6 +32,7 @@ from soar_sdk.exceptions import ActionFailure
 from soar_sdk.logging import getLogger
 from soar_sdk.models.container import Container
 from soar_sdk.models.artifact import Artifact
+
 
 logger = getLogger()
 
@@ -129,19 +134,35 @@ class Asset(BaseAsset):
 
 
 # ========================================
-# 3. CUSTOM ACTION OUTPUT
+# 3. CUSTOM ACTION OUTPUTS
 # ========================================
-class DoppelActionOutput(ActionOutput):
-    status_code: int = OutputField(
-        example_values=[200, 404, 500], column_name="Status Code"
+class BaseAlertOutput(ActionOutput):
+    """Base output model for Doppel Alerts"""
+
+    id: str | None = OutputField(example_values=["TST-123"])
+    entity: str | None = OutputField(example_values=["example.com"])
+    severity: str | None = OutputField(example_values=["high", "medium"])
+    queue_state: str | None = OutputField(example_values=["doppel_review"])
+    entity_state: str | None = OutputField(example_values=["active", "down"])
+    doppel_link: str | None = OutputField(
+        example_values=["https://app.doppel.com/alert/TST-123"]
     )
-    response_body: str = OutputField(
-        example_values=['{"id": "TST-900", "entity": "http://sample.com"}', "[]"],
-        column_name="Response Body (JSON)",
-    )
-    error_message: str = OutputField(
-        example_values=["", "Alert not found"], column_name="Error Message"
-    )
+
+
+class CreateAlertOutput(BaseAlertOutput):
+    success: bool = OutputField(example_values=[True])
+
+
+class GetAlertOutput(BaseAlertOutput):
+    pass
+
+
+class GetAllAlertsOutput(BaseAlertOutput):
+    pass
+
+
+class UpdateAlertOutput(BaseAlertOutput):
+    success: bool = OutputField(example_values=[True])
 
 
 # ========================================
@@ -152,7 +173,7 @@ app = App(
     app_type="generic",
     logo="logo.svg",
     logo_dark="logo_dark.svg",
-    product_vendor="Splunk Inc.",
+    product_vendor="Doppel",
     product_name="doppel",
     publisher="Doppel",
     appid="88e88f59-5c78-457b-9d81-1f41f9fd2096",
@@ -183,6 +204,7 @@ def _make_request(
         headers["x-organization-code"] = asset.org_code.strip()
 
     logger.info(f"API CALL: {method} {endpoint}")
+
     for attempt in range(3):
         try:
             resp = requests.request(
@@ -194,10 +216,12 @@ def _make_request(
                 timeout=30,
             )
             logger.info(f"API RESPONSE: status={resp.status_code}")
+
             if resp.status_code == 429:
                 logger.warning(f"Rate-limited, retry {attempt + 1}/3")
                 time.sleep(10)
                 continue
+
             if resp.ok:
                 try:
                     json_body = resp.json()
@@ -214,12 +238,14 @@ def _make_request(
                     pass
                 logger.error(f"HTTP {resp.status_code}: {err}")
                 return False, resp.status_code, {}, f"HTTP {resp.status_code}: {err}"
+
         except Exception as exc:
             logger.error(f"Request failed (attempt {attempt + 1}): {exc}")
             if attempt < 2:
                 time.sleep(2**attempt)
             else:
                 return False, 0, {}, f"Request failed: {exc}"
+
     return False, 0, {}, "Max retries exceeded"
 
 
@@ -228,9 +254,6 @@ def _make_request(
 # ========================================
 @app.test_connectivity()
 def test_connectivity(soar: SOARClient, asset: Asset) -> None:
-    if not asset.doppel_api_key:
-        logger.error("Doppel API key required")
-        raise ActionFailure("Doppel API key required")
     ok, status_code, data, error = _make_request(
         asset, "GET", "/alerts", params={"page_size": 1}
     )
@@ -244,238 +267,144 @@ def test_connectivity(soar: SOARClient, asset: Asset) -> None:
 # ========================================
 # 7. ACTIONS
 # ========================================
-@app.action()
+@app.action(
+    description="Create a new alert in Doppel for a specific entity.",
+    action_type="generic",
+    read_only=False,
+)
 def create_alert(
     params: CreateAlertParams, asset: Asset, soar: SOARClient
-) -> DoppelActionOutput:
+) -> CreateAlertOutput:
     logger.info("create_alert started")
-    if not asset.doppel_api_key:
-        logger.error("API key missing")
-        return DoppelActionOutput(
-            success=False,
-            message="API key missing",
-            status_code=0,
-            response_body="{}",
-            error_message="API key missing",
-        )
     payload = {"entity": params.entity}
     if params.brand:
         payload["brand"] = params.brand
     if params.source:
         payload["source"] = params.source
+
     ok, status_code, data, error = _make_request(asset, "POST", "/alert", data=payload)
-    response_body = json.dumps(data) if data else "[]"
-    if ok and (not data or (isinstance(data, list | dict) and len(data) == 0)):
-        logger.warning("Empty response from API")
-        return DoppelActionOutput(
-            success=False,
-            message="Failed to create alert: Empty response",
-            status_code=status_code,
-            response_body=response_body,
-            error_message="Empty response",
-        )
-    if ok:
-        logger.info(f"Alert created: {data.get('id')}")
-    else:
-        logger.error(f"Failed to create alert: {error}")
-    return DoppelActionOutput(
-        success=ok,
-        message=f"Created alert {data.get('id', 'unknown')}" if ok else error,
-        status_code=status_code,
-        response_body=response_body,
-        error_message="" if ok else error,
+    if not ok or not data:
+        raise ActionFailure(f"Failed to create alert. HTTP {status_code}: {error}")
+
+    logger.info(f"Alert created: {data.get('id')}")
+    return CreateAlertOutput(
+        id=data.get("id"),
+        entity=data.get("entity"),
+        severity=data.get("severity"),
+        queue_state=data.get("queue_state"),
+        entity_state=data.get("entity_state"),
+        doppel_link=data.get("doppel_link"),
     )
 
 
-@app.action()
-def get_alert(
-    params: GetAlertParams, asset: Asset, soar: SOARClient
-) -> DoppelActionOutput:
+@app.action(
+    description="Fetch details of a specific Doppel alert by its ID or entity.",
+    action_type="investigate",
+    read_only=True,
+)
+def get_alert(params: GetAlertParams, asset: Asset, soar: SOARClient) -> GetAlertOutput:
     logger.info("get_alert started")
-    if not asset.doppel_api_key:
-        logger.error("API key missing")
-        return DoppelActionOutput(
-            success=False,
-            message="API key missing",
-            status_code=0,
-            response_body="{}",
-            error_message="API key missing",
-        )
     if (params.id and params.entity) or not (params.id or params.entity):
-        logger.error("Invalid parameters: Provide either id or entity")
-        return DoppelActionOutput(
-            success=False,
-            message="Provide either id or entity",
-            status_code=0,
-            response_body="{}",
-            error_message="Invalid parameters",
+        raise ActionFailure(
+            "Invalid parameters: Provide exactly one of 'id' or 'entity'"
         )
 
-    query_params = {}
-    identifier = params.id or params.entity
-    if params.id:
-        query_params["id"] = params.id
-    elif params.entity:
-        query_params["entity"] = params.entity
-
+    query_params = params.model_dump(exclude_none=True)
     ok, status_code, data, error = _make_request(
         asset, "GET", "/alert", params=query_params
     )
-    response_body = json.dumps(data) if data else "[]"
 
-    if ok:
-        if not data or (isinstance(data, list | dict) and len(data) == 0):
-            logger.warning(f"No alert found for {identifier}")
-            return DoppelActionOutput(
-                success=False,
-                message=f"No alert found for {identifier}",
-                status_code=status_code,
-                response_body=response_body,
-                error_message="No alert found",
-            )
-        logger.info(f"Alert found for {identifier}")
-        return DoppelActionOutput(
-            success=True,
-            message=f"Found alert for {identifier}",
-            status_code=status_code,
-            response_body=response_body,
-            error_message="",
+    if not ok or not data:
+        identifier = params.id or params.entity
+        raise ActionFailure(
+            f"No alert found for {identifier}. HTTP {status_code}: {error}"
         )
-    logger.error(f"Failed to fetch alert for {identifier}: {error}")
-    return DoppelActionOutput(
-        success=False,
-        message=f"Failed to fetch alert for {identifier}: {error}",
-        status_code=status_code,
-        response_body=response_body,
-        error_message=error,
+
+    alert_data = data[0] if isinstance(data, list) and len(data) > 0 else data
+    logger.info(f"Alert found: {alert_data.get('id')}")
+
+    return GetAlertOutput(
+        id=alert_data.get("id"),
+        entity=alert_data.get("entity"),
+        severity=alert_data.get("severity"),
+        queue_state=alert_data.get("queue_state"),
+        entity_state=alert_data.get("entity_state"),
+        doppel_link=alert_data.get("doppel_link"),
     )
 
 
-@app.action()
+@app.action(
+    description="Retrieve multiple Doppel alerts based on search criteria and filters.",
+    action_type="investigate",
+    read_only=True,
+)
 def get_all_alerts(
     params: GetAllAlertsParams, asset: Asset, soar: SOARClient
-) -> DoppelActionOutput:
+) -> list[GetAllAlertsOutput]:
     logger.info("get_all_alerts started")
-    if not asset.doppel_api_key:
-        logger.error("API key missing")
-        return DoppelActionOutput(
-            success=False,
-            message="API key missing",
-            status_code=0,
-            response_body="{}",
-            error_message="API key missing",
-        )
+    query_params = params.model_dump(exclude_none=True)
 
-    query_params = {k: v for k, v in params.__dict__.items() if v is not None}
     ok, status_code, data, error = _make_request(
         asset, "GET", "/alerts", params=query_params
     )
-    response_body = json.dumps(data) if data else "[]"
+    if not ok:
+        raise ActionFailure(f"Failed to fetch alerts. HTTP {status_code}: {error}")
 
     alerts = data.get("alerts", []) if isinstance(data, dict) else []
-    if ok and not alerts:
-        logger.warning("No alerts found")
-        return DoppelActionOutput(
-            success=False,
-            message="No alerts found",
-            status_code=status_code,
-            response_body=response_body,
-            error_message="No alerts found",
+    logger.info(f"Fetched {len(alerts)} alerts")
+
+    return [
+        GetAllAlertsOutput(
+            id=alert.get("id"),
+            entity=alert.get("entity"),
+            severity=alert.get("severity"),
+            queue_state=alert.get("queue_state"),
+            entity_state=alert.get("entity_state"),
+            doppel_link=alert.get("doppel_link"),
         )
-    if ok:
-        logger.info(f"Fetched {len(alerts)} alerts")
-    else:
-        logger.error(f"Failed to fetch alerts: {error}")
-    return DoppelActionOutput(
-        success=ok,
-        message=f"Fetched {len(alerts)} alerts" if ok else error,
-        status_code=status_code,
-        response_body=response_body,
-        error_message="" if ok else error,
-    )
+        for alert in alerts
+    ]
 
 
-@app.action()
+@app.action(
+    description="Update an existing Doppel alert's queue state, entity state or comment.",
+    action_type="generic",
+    read_only=False,
+)
 def update_alert(
     params: UpdateAlertParams, asset: Asset, soar: SOARClient
-) -> DoppelActionOutput:
+) -> UpdateAlertOutput:
     logger.info("update_alert started")
-    if not asset.doppel_api_key:
-        logger.error("API key missing")
-        return DoppelActionOutput(
-            success=False,
-            message="API key missing",
-            status_code=0,
-            response_body="{}",
-            error_message="API key missing",
-        )
     if (params.id and params.entity) or not (params.id or params.entity):
-        logger.error("Invalid parameters: Provide either id or entity")
-        return DoppelActionOutput(
-            success=False,
-            message="Provide either id or entity",
-            status_code=0,
-            response_body="{}",
-            error_message="Invalid parameters",
+        raise ActionFailure(
+            "Invalid parameters: Provide exactly one of 'id' or 'entity'"
         )
 
-    query_params = {}
-    identifier = params.id or params.entity
-    if params.id:
-        query_params["id"] = params.id
-    elif params.entity:
-        query_params["entity"] = params.entity
+    query_params = {"id": params.id} if params.id else {"entity": params.entity}
+    payload = params.model_dump(exclude={"id", "entity"}, exclude_none=True)
 
-    payload = {
-        k: v
-        for k, v in params.__dict__.items()
-        if k not in ("id", "entity") and v is not None
-    }
     if not payload:
-        logger.error("No fields to update")
-        return DoppelActionOutput(
-            success=False,
-            message="No fields to update",
-            status_code=0,
-            response_body="{}",
-            error_message="No fields to update",
-        )
+        raise ActionFailure("No fields provided to update")
 
     ok, status_code, data, error = _make_request(
         asset, "PUT", "/alert", params=query_params, data=payload
     )
-    response_body = json.dumps(data) if data else "[]"
+    if not ok or not data:
+        raise ActionFailure(f"Failed to update alert. HTTP {status_code}: {error}")
 
-    if ok:
-        if not data or (isinstance(data, list | dict) and len(data) == 0):
-            logger.warning(f"No alert updated for {identifier}")
-            return DoppelActionOutput(
-                success=False,
-                message=f"No alert updated for {identifier}",
-                status_code=status_code,
-                response_body=response_body,
-                error_message="No alert updated",
-            )
-        logger.info(f"Alert updated for {identifier}")
-        return DoppelActionOutput(
-            success=True,
-            message=f"Updated alert for {identifier}",
-            status_code=status_code,
-            response_body=response_body,
-            error_message="",
-        )
-    logger.error(f"Failed to update alert for {identifier}: {error}")
-    return DoppelActionOutput(
-        success=False,
-        message=f"Failed to update alert for {identifier}: {error}",
-        status_code=status_code,
-        response_body=response_body,
-        error_message=error,
+    logger.info(f"Alert updated for {params.id or params.entity}")
+    return UpdateAlertOutput(
+        id=data.get("id"),
+        entity=data.get("entity"),
+        severity=data.get("severity"),
+        queue_state=data.get("queue_state"),
+        entity_state=data.get("entity_state"),
+        doppel_link=data.get("doppel_link"),
     )
 
 
 # ========================================
-# 8. HELPER FUNCTIONS FOR UPDATES
+# 8. HELPER FUNCTIONS
 # ========================================
 def get_existing_container(soar: SOARClient, sdi: str) -> dict | None:
     try:
@@ -485,11 +414,7 @@ def get_existing_container(soar: SOARClient, sdi: str) -> dict | None:
         )
         data = response.json()
         containers = data.get("data", [])
-        if containers:
-            logger.info(f"Found container for SDI {sdi}")
-            return containers[0]
-        logger.info(f"No container found for SDI {sdi}")
-        return None
+        return containers[0] if containers else None
     except Exception as e:
         logger.error(f"Failed to query container for SDI {sdi}: {e}")
         return None
@@ -505,38 +430,13 @@ def update_container(soar: SOARClient, container_id: int, container: Container) 
         "label": container.label,
         "run_automation": container.run_automation,
     }
-    if update_payload["severity"] not in ("low", "medium", "high", "critical"):
-        logger.error(f"Invalid severity for container ID {container_id}")
+    try:
+        response = soar.post(f"rest/container/{container_id}", json=update_payload)
+        data = response.json()
+        return data.get("success", False) and data.get("id") == container_id
+    except Exception as e:
+        logger.error(f"Failed to update container {container_id}: {e}")
         return False
-    logger.info(f"Updating container ID {container_id}")
-    for attempt in range(3):
-        try:
-            response = soar.post(f"rest/container/{container_id}", json=update_payload)
-            data = response.json()
-            if data.get("success", False) and data.get("id") == container_id:
-                logger.info(f"Container ID {container_id} updated")
-                return True
-            logger.error(
-                f"Failed to update container ID {container_id}: {data.get('message', 'Unknown error')}"
-            )
-            if attempt < 2 and response.status_code in (429, 500, 503):
-                logger.warning(f"Retrying container ID {container_id}")
-                time.sleep(2**attempt)
-                continue
-            return False
-        except Exception as e:
-            logger.error(f"Failed to update container ID {container_id}: {e}")
-            if (
-                attempt < 2
-                and hasattr(e, "response")
-                and e.response.status_code in (429, 500, 503)
-            ):
-                logger.warning(f"Retrying container ID {container_id}")
-                time.sleep(2**attempt)
-                continue
-            return False
-    logger.error(f"Max retries exceeded for container ID {container_id}")
-    return False
 
 
 def get_existing_artifact(soar: SOARClient, sdi: str, container_id: int) -> dict | None:
@@ -547,25 +447,14 @@ def get_existing_artifact(soar: SOARClient, sdi: str, container_id: int) -> dict
         )
         data = response.json()
         artifacts = data.get("data", [])
-        if artifacts:
-            logger.info(f"Found artifact for SDI {sdi} in container {container_id}")
-            return artifacts[0]
-        logger.info(f"No artifact found for SDI {sdi} in container {container_id}")
-        return None
+        return artifacts[0] if artifacts else None
     except Exception as e:
         logger.error(f"Failed to query artifact for SDI {sdi}: {e}")
         return None
 
 
 def update_artifact(soar: SOARClient, artifact_id: int, artifact: Artifact) -> bool:
-    sanitized_cef = {}
-    for k, v in artifact.cef.items():
-        if v is None:
-            continue
-        if isinstance(v, (str | int | float | bool)):
-            sanitized_cef[k] = v
-        else:
-            sanitized_cef[k] = str(v)
+    sanitized_cef = {k: v for k, v in artifact.cef.items() if v is not None}
     update_payload = {
         "name": artifact.name,
         "label": artifact.label,
@@ -574,81 +463,64 @@ def update_artifact(soar: SOARClient, artifact_id: int, artifact: Artifact) -> b
         "description": artifact.description,
         "run_automation": artifact.run_automation,
     }
-    logger.info(f"Updating artifact ID {artifact_id}")
-    for attempt in range(3):
-        try:
-            response = soar.post(f"rest/artifact/{artifact_id}", json=update_payload)
-            data = response.json()
-            if data.get("success", False) and data.get("id") == artifact_id:
-                logger.info(f"Artifact ID {artifact_id} updated")
-                return True
-            logger.error(
-                f"Failed to update artifact ID {artifact_id}: {data.get('message', 'Unknown error')}"
-            )
-            if attempt < 2 and response.status_code in (429, 500, 503):
-                logger.warning(f"Retrying artifact ID {artifact_id}")
-                time.sleep(2**attempt)
-                continue
-            return False
-        except Exception as e:
-            logger.error(f"Failed to update artifact ID {artifact_id}: {e}")
-            if (
-                attempt < 2
-                and hasattr(e, "response")
-                and e.response.status_code in (429, 500, 503)
-            ):
-                logger.warning(f"Retrying artifact ID {artifact_id}")
-                time.sleep(2**attempt)
-                continue
-            return False
-    logger.error(f"Max retries exceeded for artifact ID {artifact_id}")
-    return False
+    try:
+        response = soar.post(f"rest/artifact/{artifact_id}", json=update_payload)
+        data = response.json()
+        return data.get("success", False) and data.get("id") == artifact_id
+    except Exception as e:
+        logger.error(f"Failed to update artifact {artifact_id}: {e}")
+        return False
 
 
 # ========================================
-# 9. ON POLL - YIELD CONTAINER/ARTIFACT WITH UPDATES
+# 9. ON POLL
 # ========================================
 @app.on_poll()
 def on_poll(
     params: OnPollParams, asset: Asset, soar: SOARClient
 ) -> Iterator[Container | Artifact]:
     logger.info("DOPPEL POLLING STARTED")
-    if not asset.doppel_api_key:
-        logger.error("API key missing")
-        return
 
-    is_manual = soar.get_executing_container_id() == 0
+    is_manual = params.is_manual_poll()
+
+    now_utc = datetime.now(ZoneInfo("UTC"))
+    state = asset.ingest_state or {}
+
+    # Determine start timestamp for querying alerts
     if is_manual:
-        start_ts = (
-            datetime.now(ZoneInfo("UTC"))
-            - timedelta(days=asset.historical_polling_days)
-        ).strftime("%Y-%m-%dT%H:%M:%S")
-        logger.info(f"Manual Poll: Fetching since {start_ts}")
-        base_params = {"last_activity_timestamp": start_ts}
-    else:
-        start_ts = (datetime.now(ZoneInfo("UTC")) - timedelta(minutes=30)).strftime(
+        start_ts = (now_utc - timedelta(days=asset.historical_polling_days)).strftime(
             "%Y-%m-%dT%H:%M:%S"
         )
-        logger.info(f"Scheduled Poll: Fetching since {start_ts}")
-        base_params = {"last_activity_timestamp": start_ts}
+        logger.info(
+            f"Manual Poll: Fetching historical data since {start_ts} ({asset.historical_polling_days} days)"
+        )
+    else:
+        # Scheduled poll: use saved last_poll_time or fallback to historical on first run
+        last_poll_time = state.get("last_poll_time")
+        if not last_poll_time:
+            start_ts = (
+                now_utc - timedelta(days=asset.historical_polling_days)
+            ).strftime("%Y-%m-%dT%H:%M:%S")
+            logger.info(
+                f"Scheduled Poll (first run): Fetching historical data since {start_ts}"
+            )
+        else:
+            start_ts = last_poll_time
+            logger.info(
+                f"Scheduled Poll: Fetching alerts with activity since {start_ts}"
+            )
 
-    base_params["page_size"] = 100
+    base_params = {"last_activity_timestamp": start_ts, "page_size": 100}
+
     page = 0
+    containers_added = containers_updated = containers_failed = 0
+    artifacts_added = artifacts_updated = artifacts_failed = 0
+    audit_artifacts_added = audit_artifacts_skipped = audit_artifacts_failed = 0
     total_processed = 0
-    containers_added = 0
-    containers_updated = 0
-    artifacts_added = 0
-    artifacts_updated = 0
-    audit_artifacts_added = 0
-    audit_artifacts_skipped = 0
-    containers_failed = 0
-    artifacts_failed = 0
-    audit_artifacts_failed = 0
 
     while True:
         query_params = base_params.copy()
         query_params["page"] = page
-        logger.info(f"Fetching page {page}")
 
         success, status_code, resp, error = _make_request(
             asset, "GET", "/alerts", params=query_params
@@ -657,31 +529,19 @@ def on_poll(
             logger.error(f"API failed on page {page}: {error}")
             break
 
-        alerts = resp.get("alerts", [])
+        alerts = resp.get("alerts", []) if isinstance(resp, dict) else []
         logger.info(f"Page {page}: {len(alerts)} alerts")
 
         if not alerts:
-            logger.info("No alerts, ending")
             break
 
         for alert in alerts:
             alert_id = alert.get("id", "unknown")
             entity = alert.get("entity", "unknown")
-            logger.info(f"Processing alert {alert_id}")
-
             unique_sdi = alert_id
-            entity_sanitized = (
-                entity.replace("://", "_")
-                .replace("/", "_")
-                .replace(":", "_")
-                .replace(" ", "_")
-            )
-            main_artifact_sdi = f"{alert_id}-{entity_sanitized}"
 
-            severity = alert.get("severity") or "medium"
-            severity = severity.lower() if isinstance(severity, str) else "medium"
+            severity = (alert.get("severity") or "medium").lower()
             if severity not in ("low", "medium", "high", "critical"):
-                logger.warning(f"Invalid severity for alert {alert_id}")
                 severity = "medium"
 
             container = Container(
@@ -694,26 +554,18 @@ def on_poll(
 
             existing_container = get_existing_container(soar, unique_sdi)
             container_id = None
+
             if existing_container:
                 container_id = existing_container["id"]
                 if update_container(soar, container_id, container):
                     containers_updated += 1
                 else:
                     containers_failed += 1
-                    logger.error(f"Failed to update container for alert {alert_id}")
             else:
                 try:
                     yield container
                     containers_added += 1
-                    existing_container = get_existing_container(soar, unique_sdi)
-                    if existing_container:
-                        container_id = existing_container["id"]
-                    else:
-                        containers_failed += 1
-                        logger.error(
-                            f"Failed to retrieve container for alert {alert_id}"
-                        )
-                        continue
+                    container_id = container.container_id
                 except Exception as e:
                     containers_failed += 1
                     logger.error(
@@ -722,9 +574,9 @@ def on_poll(
                     continue
 
             if not container_id:
-                logger.error(f"No container ID for alert {alert_id}")
                 continue
 
+            # ==================== Main Artifact ====================
             cef = {
                 "alert_id": alert_id,
                 "entity": entity,
@@ -740,7 +592,6 @@ def on_poll(
                 "doppel_link": alert.get("doppel_link"),
                 "screenshot_url": alert.get("screenshot_url"),
                 "score": alert.get("score"),
-                "uploaded_by": alert.get("uploaded_by"),
                 "tags": ",".join(
                     tag.get("name", "") if isinstance(tag, dict) else str(tag)
                     for tag in alert.get("tags", [])
@@ -748,6 +599,14 @@ def on_poll(
             }
             if extra := alert.get("entity_content"):
                 cef["entity_content"] = json.dumps(extra)
+
+            entity_sanitized = (
+                entity.replace("://", "_")
+                .replace("/", "_")
+                .replace(":", "_")
+                .replace(" ", "_")
+            )
+            main_artifact_sdi = f"{alert_id}-{entity_sanitized}"
 
             artifact = Artifact(
                 name=f"Entity: {entity}",
@@ -764,12 +623,10 @@ def on_poll(
                 soar, main_artifact_sdi, container_id
             )
             if existing_artifact:
-                artifact_id = existing_artifact["id"]
-                if update_artifact(soar, artifact_id, artifact):
+                if update_artifact(soar, existing_artifact["id"], artifact):
                     artifacts_updated += 1
                 else:
                     artifacts_failed += 1
-                    logger.error(f"Failed to update artifact for alert {alert_id}")
             else:
                 try:
                     yield artifact
@@ -778,84 +635,57 @@ def on_poll(
                     artifacts_failed += 1
                     logger.error(f"Failed to create artifact for alert {alert_id}: {e}")
 
-            audit = alert.get("audit_logs", [])
-            if audit:
-                logger.info(f"Processing {len(audit)} audit logs for alert {alert_id}")
-                sorted_audit = sorted(
-                    audit,
-                    key=lambda log: log.get("timestamp", "1970-01-01T00:00:00")
-                    or "1970-01-01T00:00:00",
-                    reverse=True,
+            # ==================== Audit Logs ====================
+            for log in alert.get("audit_logs", []):
+                audit_timestamp = (
+                    log.get("timestamp", "unknown")
+                    .replace(":", "_")
+                    .replace(".", "_")
+                    .replace(" ", "_")
                 )
-                for i, log in enumerate(sorted_audit, 1):
-                    audit_timestamp = (
-                        log.get("timestamp", "unknown")
-                        .replace(":", "_")
-                        .replace(".", "_")
-                        .replace(" ", "_")
-                    )
-                    audit_type = (
-                        log.get("type", "unknown")
-                        .replace(" ", "_")
-                        .replace(":", "_")
-                        .replace("/", "_")
-                    )
-                    audit_sdi = f"{alert_id}-{audit_timestamp}-{audit_type}"
+                audit_type = (
+                    log.get("type", "unknown")
+                    .replace(" ", "_")
+                    .replace(":", "_")
+                    .replace("/", "_")
+                )
+                audit_sdi = f"{alert_id}-{audit_timestamp}-{audit_type}"
 
-                    existing_audit_artifact = get_existing_artifact(
-                        soar, audit_sdi, container_id
-                    )
-                    if existing_audit_artifact:
-                        audit_artifacts_skipped += 1
-                        continue
+                if get_existing_artifact(soar, audit_sdi, container_id):
+                    audit_artifacts_skipped += 1
+                    continue
 
-                    audit_cef = {
+                audit_artifact = Artifact(
+                    name=f"Type: {log.get('type', 'unknown')}",
+                    label="audit_log",
+                    type="audit_log",
+                    cef={
                         "alert_id": alert_id,
                         "entity": entity,
                         "audit_type": log.get("type", "?"),
                         "audit_value": log.get("value", "?"),
                         "audit_timestamp": log.get("timestamp", "?"),
                         "audit_created_by": log.get("changed_by", "?"),
-                    }
-                    audit_artifact = Artifact(
-                        name=f"Type: {log.get('type', 'unknown')}",
-                        label="audit_log",
-                        type="audit_log",
-                        cef=audit_cef,
-                        source_data_identifier=audit_sdi,
-                        description=f"Audit log entry {i} for alert {alert_id}",
-                        run_automation=False,
-                        container_id=container_id,
-                    )
-
-                    try:
-                        yield audit_artifact
-                        audit_artifacts_added += 1
-                    except Exception as e:
-                        audit_artifacts_failed += 1
-                        logger.error(
-                            f"Failed to create audit artifact {i} for alert {alert_id}: {e}"
-                        )
+                    },
+                    source_data_identifier=audit_sdi,
+                    description=f"Audit log entry for alert {alert_id}",
+                    run_automation=False,
+                    container_id=container_id,
+                )
+                try:
+                    yield audit_artifact
+                    audit_artifacts_added += 1
+                except Exception:
+                    audit_artifacts_failed += 1
 
             total_processed += 1
 
-        meta = resp.get("metadata", {})
-        total_pages = meta.get("total_pages", 1)
         page += 1
-        if page >= total_pages:
-            logger.info("Reached last page")
+        meta = resp.get("metadata", {}) if isinstance(resp, dict) else {}
+        if page >= meta.get("total_pages", 1):
             break
 
     logger.info(f"POLLING FINISHED - {total_processed} alerts processed")
-    logger.info(
-        f"Containers: added={containers_added}, updated={containers_updated}, failed={containers_failed}"
-    )
-    logger.info(
-        f"Artifacts: added={artifacts_added}, updated={artifacts_updated}, failed={artifacts_failed}"
-    )
-    logger.info(
-        f"Audit artifacts: added={audit_artifacts_added}, skipped={audit_artifacts_skipped}, failed={audit_artifacts_failed}"
-    )
 
     soar.set_summary(
         {
@@ -871,6 +701,13 @@ def on_poll(
             "total_processed": total_processed,
         }
     )
+
+    if not is_manual:
+        state["last_poll_time"] = now_utc.strftime("%Y-%m-%dT%H:%M:%S")
+        asset.ingest_state = state
+        logger.info(
+            f"Saved last_poll_time = {state['last_poll_time']} for next scheduled run."
+        )
 
 
 # ========================================

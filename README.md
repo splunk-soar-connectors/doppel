@@ -2,7 +2,7 @@
 
 Publisher: Doppel <br>
 Connector Version: 1.0.0 <br>
-Product Vendor: Splunk Inc. <br>
+Product Vendor: Doppel <br>
 Product Name: doppel <br>
 Minimum Product Version: 6.4.0
 
@@ -22,10 +22,10 @@ VARIABLE | REQUIRED | TYPE | DESCRIPTION
 ### Supported Actions
 
 [test connectivity](#action-test-connectivity) - test connectivity <br>
-[create alert](#action-create-alert) - create alert <br>
-[get alert](#action-get-alert) - get alert <br>
-[get all alerts](#action-get-all-alerts) - get all alerts <br>
-[update alert](#action-update-alert) - update alert <br>
+[create alert](#action-create-alert) - Create a new alert in Doppel for a specific entity. <br>
+[get alert](#action-get-alert) - Fetch details of a specific Doppel alert by its ID or entity. <br>
+[get all alerts](#action-get-all-alerts) - Retrieve multiple Doppel alerts based on search criteria and filters. <br>
+[update alert](#action-update-alert) - Update an existing Doppel alert's queue state, entity state or comment. <br>
 [on poll](#action-on-poll) - on poll
 
 ## action: 'test connectivity'
@@ -52,10 +52,10 @@ summary.total_objects_successful | numeric | | 1 |
 
 ## action: 'create alert'
 
-create alert
+Create a new alert in Doppel for a specific entity.
 
 Type: **generic** <br>
-Read only: **True**
+Read only: **False**
 
 #### Action Parameters
 
@@ -74,17 +74,21 @@ action_result.message | string | | |
 action_result.parameter.entity | string | | |
 action_result.parameter.brand | string | | |
 action_result.parameter.source | string | | |
-action_result.data.\*.status_code | numeric | | 200 404 500 |
-action_result.data.\*.response_body | string | | {"id": "TST-900", "entity": "http://sample.com"} [] |
-action_result.data.\*.error_message | string | | Alert not found |
+action_result.data.\*.id | string | | TST-123 |
+action_result.data.\*.entity | string | | example.com |
+action_result.data.\*.severity | string | | high medium |
+action_result.data.\*.queue_state | string | | doppel_review |
+action_result.data.\*.entity_state | string | | active down |
+action_result.data.\*.doppel_link | string | | https://app.doppel.com/alert/TST-123 |
+action_result.data.\*.success | boolean | | True False |
 summary.total_objects | numeric | | 1 |
 summary.total_objects_successful | numeric | | 1 |
 
 ## action: 'get alert'
 
-get alert
+Fetch details of a specific Doppel alert by its ID or entity.
 
-Type: **generic** <br>
+Type: **investigate** <br>
 Read only: **True**
 
 #### Action Parameters
@@ -102,17 +106,20 @@ action_result.status | string | | success failure |
 action_result.message | string | | |
 action_result.parameter.id | string | | |
 action_result.parameter.entity | string | | |
-action_result.data.\*.status_code | numeric | | 200 404 500 |
-action_result.data.\*.response_body | string | | {"id": "TST-900", "entity": "http://sample.com"} [] |
-action_result.data.\*.error_message | string | | Alert not found |
+action_result.data.\*.id | string | | TST-123 |
+action_result.data.\*.entity | string | | example.com |
+action_result.data.\*.severity | string | | high medium |
+action_result.data.\*.queue_state | string | | doppel_review |
+action_result.data.\*.entity_state | string | | active down |
+action_result.data.\*.doppel_link | string | | https://app.doppel.com/alert/TST-123 |
 summary.total_objects | numeric | | 1 |
 summary.total_objects_successful | numeric | | 1 |
 
 ## action: 'get all alerts'
 
-get all alerts
+Retrieve multiple Doppel alerts based on search criteria and filters.
 
-Type: **generic** <br>
+Type: **investigate** <br>
 Read only: **True**
 
 #### Action Parameters
@@ -144,18 +151,21 @@ action_result.parameter.last_activity_timestamp | string | | |
 action_result.parameter.tags | string | | |
 action_result.parameter.page | numeric | | |
 action_result.parameter.page_size | numeric | | |
-action_result.data.\*.status_code | numeric | | 200 404 500 |
-action_result.data.\*.response_body | string | | {"id": "TST-900", "entity": "http://sample.com"} [] |
-action_result.data.\*.error_message | string | | Alert not found |
+action_result.data.\*.id | string | | TST-123 |
+action_result.data.\*.entity | string | | example.com |
+action_result.data.\*.severity | string | | high medium |
+action_result.data.\*.queue_state | string | | doppel_review |
+action_result.data.\*.entity_state | string | | active down |
+action_result.data.\*.doppel_link | string | | https://app.doppel.com/alert/TST-123 |
 summary.total_objects | numeric | | 1 |
 summary.total_objects_successful | numeric | | 1 |
 
 ## action: 'update alert'
 
-update alert
+Update an existing Doppel alert's queue state, entity state or comment.
 
 Type: **generic** <br>
-Read only: **True**
+Read only: **False**
 
 #### Action Parameters
 
@@ -182,9 +192,13 @@ action_result.parameter.entity_state | string | | |
 action_result.parameter.comment | string | | |
 action_result.parameter.tag_action | string | | |
 action_result.parameter.tag_name | string | | |
-action_result.data.\*.status_code | numeric | | 200 404 500 |
-action_result.data.\*.response_body | string | | {"id": "TST-900", "entity": "http://sample.com"} [] |
-action_result.data.\*.error_message | string | | Alert not found |
+action_result.data.\*.id | string | | TST-123 |
+action_result.data.\*.entity | string | | example.com |
+action_result.data.\*.severity | string | | high medium |
+action_result.data.\*.queue_state | string | | doppel_review |
+action_result.data.\*.entity_state | string | | active down |
+action_result.data.\*.doppel_link | string | | https://app.doppel.com/alert/TST-123 |
+action_result.data.\*.success | boolean | | True False |
 summary.total_objects | numeric | | 1 |
 summary.total_objects_successful | numeric | | 1 |
 
