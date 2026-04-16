@@ -145,19 +145,21 @@ class BaseAlertOutput(ActionOutput):
     queue_state: str | None = OutputField(example_values=["doppel_review"])
     entity_state: str | None = OutputField(example_values=["active", "down"])
     doppel_link: str | None = OutputField(
-        example_values=["https://app.doppel.com/alert/TST-123"]
+        example_values=["https://app.doppel.com/alert/TST-123"], cef_types=["url"]
     )
     brand: str | None = OutputField(example_values=["test_brand"])
     product: str | None = OutputField(example_values=["domains"])
     platform: str | None = OutputField(example_values=["domain"])
     source: str | None = OutputField(example_values=["API Upload"])
-    created_at: str | None = OutputField(example_values=["2025-04-10T12:00:00Z"])
+    created_at: str | None = OutputField(
+        example_values=["2025-04-10T12:00:00Z"], cef_types=["timestamp"]
+    )
     last_activity_timestamp: str | None = OutputField(
-        example_values=["2025-04-15T10:30:00Z"]
+        example_values=["2025-04-15T10:30:00Z"], cef_types=["timestamp"]
     )
     score: float | None = OutputField(example_values=[0.5])
     screenshot_url: str | None = OutputField(
-        example_values=["https://example.com/screenshot.png"]
+        example_values=["https://example.com/screenshot.png"], cef_types=["url"]
     )
     tags: str | None = OutputField(example_values=["phishing, brand_protection"])
     entity_content: str | None = OutputField(example_values=['{"ip": "127.0.0.0"}'])
@@ -272,9 +274,11 @@ def test_connectivity(soar: SOARClient, asset: Asset) -> None:
         asset, "GET", "/alerts", params={"page_size": 1}
     )
     if ok:
-        logger.info("Connectivity test passed")
+        logger.info("Test connectivity  passed")
+        soar.set_message("Test connectivity passed")
     else:
-        logger.error(f"Connectivity test failed: {error}")
+        logger.error(f"Test connectivity  failed: {error}")
+        soar.set_message("Test connectivity failed")
         raise ActionFailure(error)
 
 
@@ -501,7 +505,7 @@ def on_poll(
     is_manual = params.is_manual_poll()
 
     now_utc = datetime.now(ZoneInfo("UTC"))
-    state = asset.ingest_state or {}
+    state = asset.ingest_state
 
     # Determine start timestamp for querying alerts
     if is_manual:
@@ -721,7 +725,6 @@ def on_poll(
 
     if not is_manual:
         state["last_poll_time"] = now_utc.strftime("%Y-%m-%dT%H:%M:%S")
-        asset.ingest_state = state
         logger.info(
             f"Saved last_poll_time = {state['last_poll_time']} for next scheduled run."
         )

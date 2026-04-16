@@ -79,15 +79,15 @@ action_result.data.\*.entity | string | | example.com |
 action_result.data.\*.severity | string | | high medium |
 action_result.data.\*.queue_state | string | | doppel_review |
 action_result.data.\*.entity_state | string | | active down |
-action_result.data.\*.doppel_link | string | | https://app.doppel.com/alert/TST-123 |
+action_result.data.\*.doppel_link | string | `url` | https://app.doppel.com/alert/TST-123 |
 action_result.data.\*.brand | string | | test_brand |
 action_result.data.\*.product | string | | domains |
 action_result.data.\*.platform | string | | domain |
 action_result.data.\*.source | string | | API Upload |
-action_result.data.\*.created_at | string | | 2025-04-10T12:00:00Z |
-action_result.data.\*.last_activity_timestamp | string | | 2025-04-15T10:30:00Z |
+action_result.data.\*.created_at | string | `timestamp` | 2025-04-10T12:00:00Z |
+action_result.data.\*.last_activity_timestamp | string | `timestamp` | 2025-04-15T10:30:00Z |
 action_result.data.\*.score | numeric | | 0.5 |
-action_result.data.\*.screenshot_url | string | | https://example.com/screenshot.png |
+action_result.data.\*.screenshot_url | string | `url` | https://example.com/screenshot.png |
 action_result.data.\*.tags | string | | phishing, brand_protection |
 action_result.data.\*.entity_content | string | | {"ip": "127.0.0.0"} |
 action_result.data.\*.success | boolean | | True False |
@@ -121,15 +121,15 @@ action_result.data.\*.entity | string | | example.com |
 action_result.data.\*.severity | string | | high medium |
 action_result.data.\*.queue_state | string | | doppel_review |
 action_result.data.\*.entity_state | string | | active down |
-action_result.data.\*.doppel_link | string | | https://app.doppel.com/alert/TST-123 |
+action_result.data.\*.doppel_link | string | `url` | https://app.doppel.com/alert/TST-123 |
 action_result.data.\*.brand | string | | test_brand |
 action_result.data.\*.product | string | | domains |
 action_result.data.\*.platform | string | | domain |
 action_result.data.\*.source | string | | API Upload |
-action_result.data.\*.created_at | string | | 2025-04-10T12:00:00Z |
-action_result.data.\*.last_activity_timestamp | string | | 2025-04-15T10:30:00Z |
+action_result.data.\*.created_at | string | `timestamp` | 2025-04-10T12:00:00Z |
+action_result.data.\*.last_activity_timestamp | string | `timestamp` | 2025-04-15T10:30:00Z |
 action_result.data.\*.score | numeric | | 0.5 |
-action_result.data.\*.screenshot_url | string | | https://example.com/screenshot.png |
+action_result.data.\*.screenshot_url | string | `url` | https://example.com/screenshot.png |
 action_result.data.\*.tags | string | | phishing, brand_protection |
 action_result.data.\*.entity_content | string | | {"ip": "127.0.0.0"} |
 summary.total_objects | numeric | | 1 |
@@ -176,15 +176,15 @@ action_result.data.\*.entity | string | | example.com |
 action_result.data.\*.severity | string | | high medium |
 action_result.data.\*.queue_state | string | | doppel_review |
 action_result.data.\*.entity_state | string | | active down |
-action_result.data.\*.doppel_link | string | | https://app.doppel.com/alert/TST-123 |
+action_result.data.\*.doppel_link | string | `url` | https://app.doppel.com/alert/TST-123 |
 action_result.data.\*.brand | string | | test_brand |
 action_result.data.\*.product | string | | domains |
 action_result.data.\*.platform | string | | domain |
 action_result.data.\*.source | string | | API Upload |
-action_result.data.\*.created_at | string | | 2025-04-10T12:00:00Z |
-action_result.data.\*.last_activity_timestamp | string | | 2025-04-15T10:30:00Z |
+action_result.data.\*.created_at | string | `timestamp` | 2025-04-10T12:00:00Z |
+action_result.data.\*.last_activity_timestamp | string | `timestamp` | 2025-04-15T10:30:00Z |
 action_result.data.\*.score | numeric | | 0.5 |
-action_result.data.\*.screenshot_url | string | | https://example.com/screenshot.png |
+action_result.data.\*.screenshot_url | string | `url` | https://example.com/screenshot.png |
 action_result.data.\*.tags | string | | phishing, brand_protection |
 action_result.data.\*.entity_content | string | | {"ip": "127.0.0.0"} |
 summary.total_objects | numeric | | 1 |
@@ -227,15 +227,15 @@ action_result.data.\*.entity | string | | example.com |
 action_result.data.\*.severity | string | | high medium |
 action_result.data.\*.queue_state | string | | doppel_review |
 action_result.data.\*.entity_state | string | | active down |
-action_result.data.\*.doppel_link | string | | https://app.doppel.com/alert/TST-123 |
+action_result.data.\*.doppel_link | string | `url` | https://app.doppel.com/alert/TST-123 |
 action_result.data.\*.brand | string | | test_brand |
 action_result.data.\*.product | string | | domains |
 action_result.data.\*.platform | string | | domain |
 action_result.data.\*.source | string | | API Upload |
-action_result.data.\*.created_at | string | | 2025-04-10T12:00:00Z |
-action_result.data.\*.last_activity_timestamp | string | | 2025-04-15T10:30:00Z |
+action_result.data.\*.created_at | string | `timestamp` | 2025-04-10T12:00:00Z |
+action_result.data.\*.last_activity_timestamp | string | `timestamp` | 2025-04-15T10:30:00Z |
 action_result.data.\*.score | numeric | | 0.5 |
-action_result.data.\*.screenshot_url | string | | https://example.com/screenshot.png |
+action_result.data.\*.screenshot_url | string | `url` | https://example.com/screenshot.png |
 action_result.data.\*.tags | string | | phishing, brand_protection |
 action_result.data.\*.entity_content | string | | {"ip": "127.0.0.0"} |
 action_result.data.\*.success | boolean | | True False |
