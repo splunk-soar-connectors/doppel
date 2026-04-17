@@ -1,5 +1,5 @@
 [project]
-name = "Doppel"
+name = "doppel"
 version = "1.0.0"
 description = "The Doppel-Splunk SOAR integration automates the ingestion of Doppel alerts into Splunk SOAR, creating containers and artifacts for efficient analysis. It supports actions to create, retrieve, and update alerts directly within the platform."
 license = "Copyright (c) 2025 Splunk Inc."
