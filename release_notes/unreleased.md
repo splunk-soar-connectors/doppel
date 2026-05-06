@@ -1,2 +1,2 @@
-## Added following actions
-1. Doppel logo update
+**Unreleased**
+* 1. Updated Doppel Logo
