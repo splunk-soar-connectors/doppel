@@ -1,2 +1,2 @@
 **Unreleased**
-* 1. Updated Doppel Logo
+* 1. Updated Doppel Logo 
