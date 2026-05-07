@@ -1,7 +1,7 @@
 # Doppel
 
 Publisher: Doppel <br>
-Connector Version: 1.0.0 <br>
+Connector Version: 1.0.1 <br>
 Product Vendor: Doppel <br>
 Product Name: doppel <br>
 Minimum Product Version: 6.4.0
