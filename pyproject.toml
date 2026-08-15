@@ -8,7 +8,7 @@ authors = [
 ]
 dependencies = [
     "requests>=2.32.5",
-    "splunk-soar-sdk==3.19.0",
+    "splunk-soar-sdk==4.0.0",
 ]
 
 [tool.soar.app]
