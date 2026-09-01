@@ -270,7 +270,7 @@ def _make_request(
 # ========================================
 @app.test_connectivity()
 def test_connectivity(soar: SOARClient, asset: Asset) -> None:
-    ok, status_code, data, error = _make_request(
+    ok, _status_code, _data, error = _make_request(
         asset, "GET", "/alerts", params={"page_size": 1}
     )
     if ok:
@@ -543,7 +543,7 @@ def on_poll(
         query_params = base_params.copy()
         query_params["page"] = page
 
-        success, status_code, resp, error = _make_request(
+        success, _status_code, resp, error = _make_request(
             asset, "GET", "/alerts", params=query_params
         )
         if not success:
