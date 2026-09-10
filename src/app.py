@@ -15,9 +15,13 @@
 
 # src/app.py
 import time
+import tomllib
 from collections.abc import Iterator
+from contextlib import suppress
 from datetime import datetime, timedelta
+from pathlib import Path
 from zoneinfo import ZoneInfo
+import httpx
 import requests
 import json
 from urllib.parse import quote
@@ -28,6 +32,8 @@ from soar_sdk.app import App
 from soar_sdk.params import Params, Param, OnPollParams
 from soar_sdk.action_results import ActionOutput, OutputField
 from soar_sdk.asset import BaseAsset, AssetField
+from soar_sdk.auth.client import OAuthClientError, SOARAssetOAuthClient
+from soar_sdk.auth.models import OAuthConfig, OAuthGrantType
 from soar_sdk.exceptions import ActionFailure
 from soar_sdk.logging import getLogger
 from soar_sdk.models.container import Container
@@ -35,6 +41,46 @@ from soar_sdk.models.artifact import Artifact
 
 
 logger = getLogger()
+
+
+# ========================================
+# 0. API & ATTRIBUTION CONSTANTS
+# ========================================
+DOPPEL_API_HOST = "https://api.doppel.com"
+DOPPEL_API_V1 = f"{DOPPEL_API_HOST}/v1"
+DOPPEL_API_V2 = f"{DOPPEL_API_HOST}/v2"
+DOPPEL_OAUTH_TOKEN_URL = f"{DOPPEL_API_HOST}/oauth/token"
+DOPPEL_OAUTH_AUDIENCE = "doppel-external"
+
+
+def _app_version() -> str:
+    """Resolve the app version for client attribution headers.
+
+    In a source checkout the version lives in pyproject.toml (kept current by
+    semantic-release); in an installed SOAR app the packaged manifest.json
+    carries it instead (pyproject.toml is not shipped).
+    """
+    app_root = Path(__file__).resolve().parent.parent
+    pyproject = app_root / "pyproject.toml"
+    if pyproject.exists():
+        with suppress(Exception):
+            return tomllib.loads(pyproject.read_text())["project"]["version"]
+    manifest = app_root / "manifest.json"
+    if manifest.exists():
+        with suppress(Exception):
+            return json.loads(manifest.read_text())["app_version"]
+    return "unknown"
+
+
+APP_VERSION = _app_version()
+
+# Optional usage-attribution headers understood by the Doppel API; they do not
+# affect authentication or request behavior. Sent on every request, including
+# OAuth token mints.
+ATTRIBUTION_HEADERS = {
+    "x-doppel-client": f"splunk-soar/{APP_VERSION}",
+    "User-Agent": f"doppel-splunk-soar/{APP_VERSION}",
+}
 
 
 # ========================================
@@ -120,12 +166,27 @@ class UpdateAlertParams(Params):
 # ========================================
 class Asset(BaseAsset):
     doppel_api_key: str = AssetField(
-        sensitive=True, description="Doppel API Key", required=True
+        sensitive=True,
+        description="Doppel API Key (v1 API; leave blank when using OAuth client credentials)",
+        required=False,
     )
     user_api_key: str = AssetField(
-        sensitive=True, description="Optional User API Key", required=False
+        sensitive=True,
+        description="Optional User API Key (v1 API only)",
+        required=False,
     )
-    org_code: str = AssetField(description="Optional Organization Code", required=False)
+    org_code: str = AssetField(
+        description="Optional Organization Code (v1 API only)", required=False
+    )
+    client_id: str = AssetField(
+        description="OAuth Client ID (v2 API; requires Client Secret)",
+        required=False,
+    )
+    client_secret: str = AssetField(
+        sensitive=True,
+        description="OAuth Client Secret (v2 API; requires Client ID)",
+        required=False,
+    )
     historical_polling_days: int = AssetField(
         description="Number of days to look back for initial polling (default: 30)",
         required=False,
@@ -200,8 +261,84 @@ app = App(
 
 
 # ========================================
-# 5. API HELPER
+# 5. AUTH & API HELPERS
 # ========================================
+def _use_oauth(asset: Asset) -> bool:
+    """Resolve the auth mode from the asset configuration.
+
+    OAuth client credentials (v2 API) when both Client ID and Client Secret are
+    set; API key (v1 API) otherwise. Raises on a half-configured OAuth pair or
+    no credentials at all, so misconfiguration surfaces as a clear message
+    instead of an HTTP 401.
+    """
+    has_client_id = bool(asset.client_id and asset.client_id.strip())
+    has_client_secret = bool(asset.client_secret and asset.client_secret.strip())
+    if has_client_id != has_client_secret:
+        raise ActionFailure(
+            "Incomplete OAuth credentials: provide both OAuth Client ID and "
+            "OAuth Client Secret, or neither"
+        )
+    if has_client_id:
+        return True
+    if not (asset.doppel_api_key and asset.doppel_api_key.strip()):
+        raise ActionFailure(
+            "Missing Doppel credentials: provide either an OAuth Client ID and "
+            "Client Secret (v2 API) or a Doppel API Key (v1 API)"
+        )
+    return False
+
+
+def _oauth_client(asset: Asset) -> SOARAssetOAuthClient:
+    """Build the SDK OAuth client backed by encrypted per-asset state.
+
+    Tokens persist in ``asset.auth_state`` across action/poll processes, so a
+    24h Doppel token is minted roughly once per day per asset — well within
+    the token endpoint's per-client mint budget. The custom httpx client
+    carries the attribution headers on token mints as well.
+    """
+    config = OAuthConfig(
+        client_id=asset.client_id.strip(),
+        client_secret=asset.client_secret.strip(),
+        token_endpoint=DOPPEL_OAUTH_TOKEN_URL,
+        grant_type=OAuthGrantType.CLIENT_CREDENTIALS,
+    )
+    return SOARAssetOAuthClient(
+        config,
+        asset.auth_state,
+        http_client=httpx.Client(headers=ATTRIBUTION_HEADERS, timeout=30.0),
+    )
+
+
+def _get_oauth_token(asset: Asset, force_refresh: bool = False) -> str:
+    """Return a valid access token, minting a new one only when needed.
+
+    Doppel's client-credentials grant issues no refresh token, so expiry or a
+    revoked token is handled by re-running the credentials mint.
+    """
+    client = _oauth_client(asset)
+    if not force_refresh:
+        try:
+            return client.get_valid_token(auto_refresh=False).access_token
+        except OAuthClientError:
+            logger.info("No valid cached OAuth token; requesting a new one")
+    return client.fetch_token_with_client_credentials(
+        extra_params={"audience": DOPPEL_OAUTH_AUDIENCE},
+    ).access_token
+
+
+def _build_headers(asset: Asset, use_oauth: bool) -> dict:
+    headers = {"Content-Type": "application/json", **ATTRIBUTION_HEADERS}
+    if use_oauth:
+        headers["Authorization"] = f"Bearer {_get_oauth_token(asset)}"
+    else:
+        headers["x-api-key"] = asset.doppel_api_key.strip()
+        if asset.user_api_key:
+            headers["x-user-api-key"] = asset.user_api_key.strip()
+        if asset.org_code:
+            headers["x-organization-code"] = asset.org_code.strip()
+    return headers
+
+
 def _make_request(
     asset: Asset,
     method: str,
@@ -209,18 +346,22 @@ def _make_request(
     params: dict | None = None,
     data: dict | None = None,
 ) -> tuple[bool, int, dict, str]:
-    url = f"https://api.doppel.com/v1{endpoint}"
-    headers = {
-        "x-api-key": asset.doppel_api_key.strip() if asset.doppel_api_key else "",
-        "Content-Type": "application/json",
-    }
-    if asset.user_api_key:
-        headers["x-user-api-key"] = asset.user_api_key.strip()
-    if asset.org_code:
-        headers["x-organization-code"] = asset.org_code.strip()
+    try:
+        use_oauth = _use_oauth(asset)
+    except ActionFailure as exc:
+        return False, 0, {}, str(exc)
+
+    base_url = DOPPEL_API_V2 if use_oauth else DOPPEL_API_V1
+    url = f"{base_url}{endpoint}"
+    try:
+        headers = _build_headers(asset, use_oauth)
+    except OAuthClientError as exc:
+        logger.error(f"OAuth token request failed: {exc}")
+        return False, 0, {}, f"OAuth token request failed: {exc}"
 
     logger.info(f"API CALL: {method} {endpoint}")
 
+    auth_retried = False
     for attempt in range(3):
         try:
             resp = requests.request(
@@ -236,6 +377,19 @@ def _make_request(
             if resp.status_code == 429:
                 logger.warning(f"Rate-limited, retry {attempt + 1}/3")
                 time.sleep(10)
+                continue
+
+            # Cached token may have been revoked or expired early:
+            # re-mint once and retry.
+            if resp.status_code == 401 and use_oauth and not auth_retried:
+                logger.warning("HTTP 401 — refreshing OAuth token and retrying")
+                auth_retried = True
+                try:
+                    token = _get_oauth_token(asset, force_refresh=True)
+                except OAuthClientError as exc:
+                    logger.error(f"OAuth token refresh failed: {exc}")
+                    return False, 401, {}, f"OAuth token refresh failed: {exc}"
+                headers["Authorization"] = f"Bearer {token}"
                 continue
 
             if resp.ok:

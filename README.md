@@ -14,9 +14,11 @@ This table lists the configuration variables required to operate Doppel. These v
 
 VARIABLE | REQUIRED | TYPE | DESCRIPTION
 -------- | -------- | ---- | -----------
-**doppel_api_key** | required | password | Doppel API Key |
-**user_api_key** | optional | password | Optional User API Key |
-**org_code** | optional | string | Optional Organization Code |
+**doppel_api_key** | optional | password | Doppel API Key (v1 API; leave blank when using OAuth client credentials) |
+**user_api_key** | optional | password | Optional User API Key (v1 API only) |
+**org_code** | optional | string | Optional Organization Code (v1 API only) |
+**client_id** | optional | string | OAuth Client ID (v2 API; requires Client Secret) |
+**client_secret** | optional | password | OAuth Client Secret (v2 API; requires Client ID) |
 **historical_polling_days** | optional | numeric | Number of days to look back for initial polling (default: 30) |
 
 ### Supported Actions
