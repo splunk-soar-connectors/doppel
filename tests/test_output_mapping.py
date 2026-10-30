@@ -48,3 +48,12 @@ def test_last_activity_timestamp_preferred():
         }
     )
     assert out["last_activity_timestamp"] == "2026-09-10T01:00:00"
+
+
+def test_alert_summary_passed_through():
+    out = _alert_to_output({"id": "TST-1", "alert_summary": "Phishing page."})
+    assert out["alert_summary"] == "Phishing page."
+
+
+def test_alert_summary_absent_maps_to_none():
+    assert _alert_to_output({"id": "TST-1"})["alert_summary"] is None

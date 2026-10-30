@@ -92,6 +92,7 @@ action_result.data.\*.score | numeric | | 0.5 |
 action_result.data.\*.screenshot_url | string | `url` | https://example.com/screenshot.png |
 action_result.data.\*.tags | string | | phishing, brand_protection |
 action_result.data.\*.entity_content | string | | {"ip": "127.0.0.0"} |
+action_result.data.\*.alert_summary | string | | This alert tracks a phishing domain impersonating Acme. |
 action_result.data.\*.success | boolean | | True False |
 summary.total_objects | numeric | | 1 |
 summary.total_objects_successful | numeric | | 1 |
@@ -134,6 +135,7 @@ action_result.data.\*.score | numeric | | 0.5 |
 action_result.data.\*.screenshot_url | string | `url` | https://example.com/screenshot.png |
 action_result.data.\*.tags | string | | phishing, brand_protection |
 action_result.data.\*.entity_content | string | | {"ip": "127.0.0.0"} |
+action_result.data.\*.alert_summary | string | | This alert tracks a phishing domain impersonating Acme. |
 summary.total_objects | numeric | | 1 |
 summary.total_objects_successful | numeric | | 1 |
 
@@ -189,6 +191,7 @@ action_result.data.\*.score | numeric | | 0.5 |
 action_result.data.\*.screenshot_url | string | `url` | https://example.com/screenshot.png |
 action_result.data.\*.tags | string | | phishing, brand_protection |
 action_result.data.\*.entity_content | string | | {"ip": "127.0.0.0"} |
+action_result.data.\*.alert_summary | string | | This alert tracks a phishing domain impersonating Acme. |
 summary.total_objects | numeric | | 1 |
 summary.total_objects_successful | numeric | | 1 |
 
@@ -240,6 +243,7 @@ action_result.data.\*.score | numeric | | 0.5 |
 action_result.data.\*.screenshot_url | string | `url` | https://example.com/screenshot.png |
 action_result.data.\*.tags | string | | phishing, brand_protection |
 action_result.data.\*.entity_content | string | | {"ip": "127.0.0.0"} |
+action_result.data.\*.alert_summary | string | | This alert tracks a phishing domain impersonating Acme. |
 action_result.data.\*.success | boolean | | True False |
 summary.total_objects | numeric | | 1 |
 summary.total_objects_successful | numeric | | 1 |

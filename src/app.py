@@ -224,6 +224,9 @@ class BaseAlertOutput(ActionOutput):
     )
     tags: str | None = OutputField(example_values=["phishing, brand_protection"])
     entity_content: str | None = OutputField(example_values=['{"ip": "127.0.0.0"}'])
+    alert_summary: str | None = OutputField(
+        example_values=["This alert tracks a phishing domain impersonating Acme."]
+    )
 
 
 class CreateAlertOutput(BaseAlertOutput):
@@ -653,6 +656,7 @@ def _alert_to_output(alert_data: dict) -> dict:
         "entity_content": json.dumps(alert_data.get("entity_content"))
         if alert_data.get("entity_content")
         else None,
+        "alert_summary": alert_data.get("alert_summary"),
     }
 
 
@@ -783,6 +787,8 @@ def on_poll(
             }
             if extra := alert.get("entity_content"):
                 cef["entity_content"] = json.dumps(extra)
+            if summary := alert.get("alert_summary"):
+                cef["alert_summary"] = summary
 
             entity_sanitized = (
                 entity.replace("://", "_")
