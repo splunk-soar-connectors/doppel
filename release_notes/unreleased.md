@@ -1,3 +1,1 @@
 **Unreleased**
-
-* Added the Doppel AI alert summary (`alert_summary`) to alert action outputs and the polled alert artifact
